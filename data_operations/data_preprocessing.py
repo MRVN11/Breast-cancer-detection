@@ -15,7 +15,8 @@ def preprocess_images(image_path: str) -> np.ndarray:
     gray = clahe.apply(gray)
     image = cv2.cvtColor(gray, cv2.COLOR_BGR2RGB)
     image = cv2.resize(image, (224, 224))
-    image = preprocess_input(image)
+    image = image.astype("float32") / 255.0
+    # image = preprocess_input(image)
     return image
 
 def encode_labels(labels_list: np.ndarray, label_encoder) -> np.ndarray:

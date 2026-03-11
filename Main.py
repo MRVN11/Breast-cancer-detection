@@ -2,6 +2,8 @@ import os
 import ssl
 
 import tensorflow as tf
+from keras import Model, Input
+from keras.src.legacy.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications import DenseNet121
 from tensorflow.keras.layers import  Dense, Dropout, Flatten, GlobalAveragePooling2D
 from tensorflow.keras import Sequential
@@ -14,6 +16,8 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import  class_weight
 
+epochs = 30
+batch_size = 4
 
 def main() -> None:
 
@@ -28,18 +32,35 @@ def main() -> None:
     model = create_desnet121(num_classes)
     class_weights = caculate_weights(y_train, l_e)
 
-# training the model
-    history = model.fit(X_train, y_train, epochs=10, batch_size=8, validation_data=(X_val, y_val), class_weight=class_weights)
+    datagen = ImageDataGenerator(
+        rotation_range=10,
+        zoom_range=0.1,
+        horizontal_flip=True,
+        width_shift_range=0.05,
+        height_shift_range=0.05,
+        fill_mode="nearest"
+    )
 
-    for layer in model.layers[0].layers[-30:]:
+# training the model
+    history = model.fit(
+        datagen.flow(X_train,y_train,batch_size=batch_size),
+                        epochs=epochs,
+                        validation_data=(X_val, y_val),
+                        class_weight=class_weights)
+
+    for layer in model.layers[-30:]:
         layer.trainable = True
+
     model.compile(
         optimizer=tf.keras.optimizers.Adam(1e-5),
         loss="categorical_crossentropy" if num_classes > 2 else "binary_crossentropy",
         metrics=["accuracy"]
     )
 
-    model.fit(X_train, y_train, epochs=30, batch_size=8)
+    model.fit(X_train,
+              y_train,
+              epochs=epochs,
+              batch_size=batch_size)
 
 
     test_loss, test_acc = model.evaluate(X_test, y_test)
@@ -58,14 +79,14 @@ def create_desnet121(num_classes: int):
     for layer in base_model.layers:
         layer.trainable = False
 
-    model = Sequential([
-        base_model,
-        # Flatten(),
-        GlobalAveragePooling2D(),
-        Dense(256, activation="relu"),
-        Dropout(0.5),
-        Dense(num_classes, activation="softmax" if num_classes > 2 else "sigmoid")
-    ])
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(256, activation="relu")(x)
+    x = Dropout(0.5)(x)
+
+    outputs = Dense(num_classes, activation="softmax"if num_classes > 2 else "sigmoid")(x)
+
+    model = Model(inputs=base_model.input, outputs=outputs)
 
     model.compile(
         optimizer="adam",
