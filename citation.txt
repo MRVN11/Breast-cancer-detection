@@ -1,0 +1,21 @@
+https://github.com/oardilac/Breast-Cancer-Detection-ML-DL/blob/main/Breast%20Cancer.ipynb
+
+https://github.com/keerthana0512/Detection-of-breast-cancer-using-Convolutional-Neural-Network/blob/main/README.md - used pre trained models for feature extraction
+
+https://arxiv.org/html/2408.13800v2 - talk about pineering in cancer detection
+
+https://pmc.ncbi.nlm.nih.gov/articles/PMC10162639/ - goes over dataset boosting to increase accurasy
+
+https://www.sciencedirect.com/science/article/pii/S0010482521000421 - goes over how weights play a role in feature extraction
+
+https://www.sciencedirect.com/science/article/pii/S0169260717301451 - goes over how a dataset is important for detection & how preprocessing the data to be the same is important
+
+https://www.proquest.com/docview/2683808654?RAO=true&accountid=13460&pq-origsite=summon&sourcetype=Scholarly%20Journals - how catagrisation can help boost accurracy
+
+https://www.sciencedirect.com/science/article/pii/S0010482521000421 - goes over back propagation
+
+https://github.com/Adamouization/Breast-Cancer-Detection-Mammogram-Deep-Learning/tree/master
+
+https://github.com/hrsht-13/Breast-Cancer-Detection
+
+https://www.researchgate.net/profile/Suthanthira-Vanitha/publication/269781123_The_Pre-Processing_Techniques_for_Breast_Cancer_Detection_in_Mammography_Images/links/5bb36abf45851574f7f48007/The-Pre-Processing-Techniques-for-Breast-Cancer-Detection-in-Mammography-Images.pdf

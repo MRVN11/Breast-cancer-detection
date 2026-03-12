@@ -13,9 +13,9 @@ from sklearn.preprocessing import LabelEncoder
 model that will be made are densenet121, VGG and resnet50 
 model can be swaped out quickly my changing Model_in_use
 """
-epochs = 5
-batch_size = 4
-Model_in_use = "densenet121"
+epochs = 100
+batch_size = 2
+Model_in_use = "densenet"
 history = None
 # Learning_rate = 1e-6
 
@@ -27,7 +27,7 @@ def main() -> None:
     num_classes = len(l_e.classes_)
     X_train, X_test, y_train, y_test = dataset_stratified_split(split= 0.20, dataset= images, labels= labels)
 
-    if Model_in_use == "densenet121":
+    if Model_in_use == "densenet":
         model = create_densenet121(num_classes)
     elif Model_in_use == "VGG":
         pass
@@ -79,7 +79,7 @@ def main() -> None:
         y_train,
         batch_size=batch_size,
         steps_per_epoch=len(X_train) // batch_size,
-        epochs=epochs,
+        epochs=50,
     )
 
     test_loss, test_acc = model.evaluate(X_test, y_test)
