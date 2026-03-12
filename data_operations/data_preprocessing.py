@@ -3,7 +3,7 @@ import os
 import cv2
 import numpy as np
 from imutils import paths
-from keras.src.applications.densenet import preprocess_input
+from sklearn.utils import  class_weight
 from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
@@ -50,3 +50,14 @@ def import_MIAS_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray
 
     images, labels = shuffle(images, labels, random_state=42)
     return images, labels
+
+def calculate_weights(y_train, label_encoder):
+    if label_encoder.classes_.size != 2:
+        y_train = label_encoder.inverse_transform(np.argmax (y_train, axis=1))
+
+    weights = class_weight.compute_class_weight(class_weight='balanced',
+                                                classes =  np.unique(y_train),
+                                                y = y_train)
+
+    class_weights = dict(enumerate(weights))
+    return class_weights
