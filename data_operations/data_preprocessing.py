@@ -2,11 +2,17 @@ import os
 
 import cv2
 import numpy as np
+import pandas as pd
 from imutils import paths
 from sklearn.utils import  class_weight
 from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
+
+"""
+can change whether to train and test with calc or mass.
+"""
+data = "calc"
 
 def preprocess_images(image_path: str) -> np.ndarray:
     image = cv2.imread(image_path)
@@ -14,7 +20,7 @@ def preprocess_images(image_path: str) -> np.ndarray:
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
     image = cv2.cvtColor(gray, cv2.COLOR_BGR2RGB)
-    image = cv2.resize(image, (224, 224))
+    image = cv2.resize(image, (512, 512))
     image = image.astype("float32") / 255.0
     # image = preprocess_input(image)
     return image
@@ -61,3 +67,37 @@ def calculate_weights(y_train, label_encoder):
 
     class_weights = dict(enumerate(weights))
     return class_weights
+
+def import_CBIS_training_dataset(label_encoder):
+    cbis_ddsm_path = str()
+
+    if data == "calc":
+        cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/calc-training.csv"
+    if data == "Mass":
+        cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/mass-training.csv"
+    df= pd.read_csv(cbis_ddsm_path)
+    list_id = df['img_path'].values
+    label = encode_labels(df['label'].values, label_encoder)
+
+    return list_id, label
+
+def import_CBIS_test_dataset(label_encoder):
+    cbis_ddsm_path = str()
+
+    if data == "calc":
+        cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/calc-test.csv.csv"
+    if data == "Mass":
+        cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/mass-test.csv.csv"
+    df= pd.read_csv(cbis_ddsm_path)
+    list_id = df['img_path'].values
+    label = encode_labels(df['label'].values, label_encoder)
+
+    return list_id, label
+
+def import_CBIS_dataset(label_encoder):
+    cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/CBIS_dataset.csv"
+    df= pd.read_csv(cbis_ddsm_path)
+    list_id = df['img_path'].values
+    label = encode_labels(df['label'].values, label_encoder)
+
+    return list_id, label
