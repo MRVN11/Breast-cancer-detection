@@ -1,14 +1,5 @@
 import os
-
-from imutils import paths
-import numpy as np
 import pandas as pd
-from sklearn.model_selection  import train_test_split
-from sklearn.utils import class_weight
-from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.preprocessing.image import  img_to_array, load_img
-
 import cv2
 
 def main() ->  None:

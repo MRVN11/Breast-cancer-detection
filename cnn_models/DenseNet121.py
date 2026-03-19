@@ -1,5 +1,5 @@
 from keras.applications import DenseNet121
-from tensorflow.keras.layers import  Dense, Dropout, Input, GlobalAveragePooling2D, Concatenate
+from tensorflow.keras.layers import  Dense, Dropout, Input, GlobalAveragePooling2D, Concatenate, Flatten
 from tensorflow.keras import Sequential
 from keras import Model
 import ssl
@@ -21,8 +21,9 @@ def create_densenet121(num_classes: int):
         layer.trainable = False
 
     x = base_model.output
-    x = GlobalAveragePooling2D()(x)
+    x = Flatten()(x)
     x = Dense(256, activation="relu")(x)
+    x = Dense(224, activation="relu")(x)
     x = Dropout(0.5)(x)
 
     outputs = Dense(num_classes, activation="softmax" if num_classes > 2 else "sigmoid")(x)

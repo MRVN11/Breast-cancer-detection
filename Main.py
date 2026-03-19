@@ -25,8 +25,8 @@ model that will be made are densenet121 and VGG
 model can be swaped out quickly my changing Model_in_use
 dataset can be swapped as well between MIAS and CBIS
 """
-epochs = 10
-epochs2 = 5
+epochs = 20
+epochs2 = 15
 batch_size = 32
 Model_in_use = "densenet"
 history = None
@@ -36,10 +36,6 @@ dataset = "MIAS"
 def main() -> None:
 
     l_e =  LabelEncoder()
-
-
-
-
 
     try:
         if dataset == "MIAS":
