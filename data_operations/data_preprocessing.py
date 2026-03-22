@@ -19,18 +19,21 @@ def preprocess_images(image_path: str) -> np.ndarray:
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
-    image = cv2.cvtColor(gray, cv2.COLOR_BGR2RGB)
+    edges = cv2.Canny(gray, 30, 200)
+    contour, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    image = cv2.drawContours(image, contour, -1, (0, 0, 255), 2)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image = cv2.resize(image, (512, 512))
     image = image.astype("float32") / 255.0
-    # image = preprocess_input(image)
     return image
 
 def encode_labels(labels_list: np.ndarray, label_encoder) -> np.ndarray:
     labels = label_encoder.fit_transform(labels_list)
-    if label_encoder.classes_.size == 2:
-        return labels
-    else:
-        return to_categorical(labels)
+    return to_categorical(labels)
+    # if label_encoder.classes_.size == 2:
+    #     return labels
+    # else:
+    #     return to_categorical(labels)
 
 def dataset_stratified_split(split: float, dataset: np.ndarray, labels: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     """Split dataset into training and testing sets with stratification."""
@@ -42,7 +45,7 @@ def dataset_stratified_split(split: float, dataset: np.ndarray, labels: np.ndarr
                                                         shuffle=True)
     return train_x, test_x, train_y, test_y
 
-def import_MIAS_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
+def import_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray):
     images = list()
     labels = list()
 
@@ -58,46 +61,15 @@ def import_MIAS_dataset(data_dir: str, label_encoder) -> (np.ndarray, np.ndarray
     return images, labels
 
 def calculate_weights(y_train, label_encoder):
-    if label_encoder.classes_.size != 2:
-        y_train = label_encoder.inverse_transform(np.argmax (y_train, axis=1))
+    # If one-hot → convert to class indices
+    if len(y_train.shape) > 1:
+        y_train = np.argmax(y_train, axis=1)
 
-    weights = class_weight.compute_class_weight(class_weight='balanced',
-                                                classes =  np.unique(y_train),
-                                                y = y_train)
+    weights = class_weight.compute_class_weight(
+        class_weight='balanced',
+        classes=np.unique(y_train),
+        y=y_train
+    )
 
     class_weights = dict(enumerate(weights))
     return class_weights
-
-def import_CBIS_training_dataset(label_encoder):
-    cbis_ddsm_path = str()
-
-    if data == "calc":
-        cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/calc-training.csv"
-    if data == "Mass":
-        cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/mass-training.csv"
-    df= pd.read_csv(cbis_ddsm_path)
-    list_id = df['img_path'].values
-    label = encode_labels(df['label'].values, label_encoder)
-
-    return list_id, label
-
-def import_CBIS_test_dataset(label_encoder):
-    cbis_ddsm_path = str()
-
-    if data == "calc":
-        cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/calc-test.csv.csv"
-    if data == "Mass":
-        cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/mass-test.csv.csv"
-    df= pd.read_csv(cbis_ddsm_path)
-    list_id = df['img_path'].values
-    label = encode_labels(df['label'].values, label_encoder)
-
-    return list_id, label
-
-def import_CBIS_dataset(label_encoder):
-    cbis_ddsm_path = "../data/CBIS_data/CBIS_DDSM/CBIS_dataset.csv"
-    df= pd.read_csv(cbis_ddsm_path)
-    list_id = df['img_path'].values
-    label = encode_labels(df['label'].values, label_encoder)
-
-    return list_id, label

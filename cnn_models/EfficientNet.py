@@ -1,4 +1,4 @@
-from keras.applications import ResNet50
+from keras.applications import EfficientNetB7
 from tensorflow.keras.layers import  Dense, Dropout, Input, GlobalAveragePooling2D, Concatenate
 from tensorflow.keras import Sequential
 from keras import Model
@@ -7,12 +7,12 @@ import ssl
 from tensorflow.python.layers.core import fully_connected
 
 ssl._create_default_https_context = ssl._create_unverified_context
-def create_ResNet50(num_classes: int):
+def create_EfficientNet(num_classes: int):
 
     img_input = Input(shape=(512, 512, 3))
     # img_conc = Concatenate()([img_input, img_input, img_input])
 
-    base_model = ResNet50(
+    base_model = EfficientNetB7(
         weights="imagenet",
         include_top=False,
         input_tensor=img_input,

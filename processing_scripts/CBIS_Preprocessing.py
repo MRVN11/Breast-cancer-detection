@@ -1,46 +1,50 @@
 import os
-import shutil
 import pandas as pd
 import cv2
 from tqdm import tqdm
 
-def organize_cbis_images(csv_path, output_root):
+def organize_cbis_images(csv_path: str, output_root: str) -> None:
+    # Read CSV
     df = pd.read_csv(csv_path)
-    print("reading csv")
+    print(f"Reading CSV with {len(df)} entries")
 
-    # Create output folders
-    benign_dir = os.path.join(output_root, "Benign")
-    malignant_dir = os.path.join(output_root, "Malignant")
-    print("creating folders")
+    # Define folder mapping
+    label_to_folder = {
+        "MALIGNANT": "Malignant_cases",
+        "BENIGN": "Benign_cases"
+    }
 
-    os.makedirs(benign_dir, exist_ok=True)
-    os.makedirs(malignant_dir, exist_ok=True)
+    # Create folders
+    for folder in label_to_folder.values():
+        os.makedirs(os.path.join(output_root, folder), exist_ok=True)
 
-    copied = 0
-
+    # Process images
     for _, row in tqdm(df.iterrows(), total=len(df)):
         img_path = row["img_path"]
-        label = row["label"]
-        print(f"[green]processing image", {img_path})
-        # Decide destination
-        if label == "MALIGNANT":
-            dst_dir = malignant_dir
-        else:
-            dst_dir = benign_dir
+        label = row["label"].strip().upper()  # Normalize label
+        img_folder = row.get("img_folder", "Unknown")  # optional folder info
 
-        # Safer filename (prevents duplicates)
-        filename = f"{row['img_folder']}_{os.path.basename(img_path)}"
-        dst_path = os.path.join(dst_dir, filename)
+        # Skip unknown labels
+        if label not in label_to_folder:
+            print(f"⚠️  Skipping unknown label: {label} for image {img_path}")
+            continue
 
-        if not os.path.exists(dst_path):
-            # shutil.copy2(img_path, dst_path)
-            # copied += 1
-            img = cv2.imread(img_path)
-            dst_path = dst_path.replace(".jpg", ".png").replace(".jpeg", ".png")
-            cv2.imwrite(dst_path, img)
+        # Destination folder
+        dst_folder = os.path.join(output_root, label_to_folder[label])
 
-    print(f"✅ Done. {copied} images copied.")
+        # Create unique filename
+        filename = f"{img_folder}_{os.path.basename(img_path)}".replace(".jpg", ".png").replace(".jpeg", ".png")
+        dst_path = os.path.join(dst_folder, filename)
 
+        # Read and save as PNG
+        img = cv2.imread(img_path)
+        if img is None:
+            print(f"⚠️  Failed to read image: {img_path}")
+            continue
+
+        cv2.imwrite(dst_path, img)
+
+    print("✅ Done organizing CBIS images!")
 
 if __name__ == "__main__":
     organize_cbis_images(
