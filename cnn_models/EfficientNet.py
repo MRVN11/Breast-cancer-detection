@@ -1,5 +1,5 @@
 from keras.applications import EfficientNetB7
-from tensorflow.keras.layers import  Dense, Dropout, Input, GlobalAveragePooling2D, Concatenate
+from tensorflow.keras.layers import  Dense, Dropout, Input, Flatten, Concatenate
 from tensorflow.keras import Sequential
 from keras import Model
 import ssl
@@ -21,7 +21,7 @@ def create_EfficientNet(num_classes: int):
     model = Sequential()
     model.add(base_model)
 
-    model.add(GlobalAveragePooling2D())
+    model.add(Flatten())
 
     fully_connected = Sequential(name="fully_connected")
 

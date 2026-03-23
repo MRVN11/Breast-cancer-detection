@@ -1,5 +1,5 @@
 from keras.applications import ResNet50
-from tensorflow.keras.layers import  Dense, Dropout, Input, GlobalAveragePooling2D, Concatenate
+from tensorflow.keras.layers import  Dense, Dropout, Input, Flatten, Concatenate
 from tensorflow.keras import Sequential
 from keras import Model
 import ssl
@@ -8,9 +8,7 @@ from tensorflow.python.layers.core import fully_connected
 
 ssl._create_default_https_context = ssl._create_unverified_context
 def create_ResNet50(num_classes: int):
-
     img_input = Input(shape=(512, 512, 3))
-    # img_conc = Concatenate()([img_input, img_input, img_input])
 
     base_model = ResNet50(
         weights="imagenet",
@@ -21,7 +19,7 @@ def create_ResNet50(num_classes: int):
     model = Sequential()
     model.add(base_model)
 
-    model.add(GlobalAveragePooling2D())
+    model.add(Flatten())
 
     fully_connected = Sequential(name="fully_connected")
 

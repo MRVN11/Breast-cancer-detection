@@ -3,11 +3,19 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.metrics import CategoricalAccuracy
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-
+import numpy as np
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    roc_auc_score
+)
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
-
 from cnn_models.DenseNet121 import create_densenet201
 from cnn_models.ResNet50 import create_ResNet50
+from cnn_models.EfficientNet import create_EfficientNet
 from data_operations.data_preprocessing import (
     dataset_stratified_split,
     import_dataset,
@@ -15,20 +23,17 @@ from data_operations.data_preprocessing import (
 )
 
 # ======================
-# CONFIG
+# Config
 # ======================
 EPOCHS = 100
 FINE_TUNE_EPOCHS = 50
-MODEL_NAME = "densenet"  # densenet, ResNet50 & EfficientNetB7
+MODEL_NAME = "ResNet50"  # densenet, ResNet50 & EfficientNet
 DATASET = "CBIS"
 PATIENCE = EPOCHS // 10
-if DATASET == "MIAS":
-    BATCH_SIZE = 16
-elif DATASET == "CBIS":
-    BATCH_SIZE = 32
+BATCH_SIZE = 32
 
 # ======================
-# MODEL CLASS
+# Model Class
 # ======================
 class CNNModel:
     def __init__(self, model_name: str, num_classes: int):
@@ -40,16 +45,21 @@ class CNNModel:
             return create_densenet201(num_classes)
         elif self.model_name == "ResNet50":
             return create_ResNet50(num_classes)
+        elif self.model_name == "EfficientNet":
+            return create_EfficientNet(num_classes)
         else:
             raise ValueError(f"{self.model_name} not supported")
 
-    def compile(self, lr=1e-5):
+    def compile(self, lr=1e-4):
         self.model.compile(
             optimizer=Adam(learning_rate=lr),
             loss=CategoricalCrossentropy(),
             metrics=[CategoricalAccuracy()]
         )
 
+    # ======================
+    # Model Training
+    # ======================
     def train(self, X_train, X_val, y_train, y_val, class_weights):
         datagen = ImageDataGenerator(
             rotation_range=10,
@@ -108,21 +118,97 @@ class CNNModel:
         )
         return history
 
-    def evaluate(self, X_test, y_test):
-        loss, acc = self.model.evaluate(X_test, y_test)
-        print(f"Test Loss: {loss:.4f}")
-        print(f"Test Accuracy: {acc:.4f}")
-        return loss, acc
+    def Make_prediction(self, x):
+        if DATASET == "MIAS":
+            self.prediction = self.model.predict(x=x.astype("float32"), batch_size=BATCH_SIZE)
+        elif DATASET == "CBIS":
+            self.prediction = self.model.predict(x=x)
 
+    def plot_confusion_matrix(self, y_true, y_pred, classes):
+        cm = confusion_matrix(y_true, y_pred)
+
+        plt.figure(figsize=(6, 5))
+        sns.heatmap(cm, annot=True, fmt='d', xticklabels=classes, yticklabels=classes)
+        plt.xlabel("Predicted")
+        plt.ylabel("Actual")
+        plt.title("Confusion Matrix")
+        plt.show()
+
+    # ======================
+    # Evaluation
+    # ======================
+    def evaluate(self, y_true, label_encoder, classification_type: str):
+        y_pred_probs = self.prediction
+
+        # Convert probabilities → class labels
+        if y_pred_probs.shape[1] > 1:
+            y_pred = np.argmax(y_pred_probs, axis=1)
+            y_true_labels = np.argmax(y_true, axis=1)
+        else:
+            y_pred = (y_pred_probs > 0.5).astype(int).flatten()
+            y_true_labels = y_true.flatten()
+
+        acc = accuracy_score(y_true_labels, y_pred)
+
+        print("\n====================")
+        print("📊 MODEL EVALUATION")
+        print("====================")
+        print(f"Accuracy: {acc:.4f}\n")
+
+        print("Classification Report:")
+        print(classification_report(
+            y_true_labels,
+            y_pred,
+            target_names=label_encoder.classes_
+        ))
+
+        cm = confusion_matrix(y_true_labels, y_pred)
+
+        self.plot_confusion_matrix(y_true_labels, y_pred, label_encoder.classes_)
+
+        print("Confusion Matrix:")
+        print(cm)
+
+        # Sensitivity & Specificity (binary only)
+        if cm.shape == (2, 2):
+            tn, fp, fn, tp = cm.ravel()
+            sensitivity = tp / (tp + fn)
+            specificity = tn / (tn + fp)
+
+            print(f"Sensitivity (Recall): {sensitivity:.4f}")
+            print(f"Specificity: {specificity:.4f}")
+        else:
+            print("Sensitivity/Specificity only for binary classification.")
+
+        # ROC-AUC
+        try:
+            if len(label_encoder.classes_) == 2:
+                auc = roc_auc_score(y_true_labels, y_pred_probs[:, 1])
+            else:
+                auc = roc_auc_score(y_true, y_pred_probs, multi_class='ovr')
+
+            print(f"\nROC-AUC: {auc:.4f}")
+        except Exception as e:
+            print("ROC-AUC could not be computed:", e)
+
+        # Save report
+        with open("Classification_report.txt", "w") as f:
+            f.write(f"Model used: {MODEL_NAME}\n")
+            f.write(f"Accuracy: {acc:.4f}\n\n")
+            f.write(classification_report(
+                y_true_labels,
+                y_pred,
+                target_names=label_encoder.classes_
+            ))
 # ======================
-# MAIN PIPELINE
+# Main
 # ======================
 def main():
     label_encoder = LabelEncoder()
     try:
         if DATASET == "MIAS":
             images, labels = import_dataset(
-                data_dir="data/CBIS_data/CBIS_images", label_encoder=label_encoder)
+                data_dir="data/MIAS_data/Processed-Images", label_encoder=label_encoder)
             num_classes = len(label_encoder.classes_)
             # Train/Test split
             X_train, X_test, y_train, y_test = dataset_stratified_split(
@@ -137,7 +223,8 @@ def main():
             model.compile()
             model.train(X_train, X_val, y_train, y_val, class_weights)
             model.fine_tune(X_train, X_val, y_train, y_val, class_weights)
-            model.evaluate(X_test, y_test)
+            model.Make_prediction(X_val)
+            model.evaluate(y_val, label_encoder, 'B_M')
 
         elif DATASET == "CBIS":
             images, labels = import_dataset(
@@ -152,7 +239,8 @@ def main():
             model.compile()
             model.train(X_train, X_val, y_train, y_val, class_weights)
             model.fine_tune(X_train, X_val, y_train, y_val, class_weights)
-            # model.evaluate(X_test, y_test)
+            model.Make_prediction(X_val)
+            model.evaluate(y_val, label_encoder, 'B_M')
 
     except FileNotFoundError as e:
         print("Dataset not found:", e)

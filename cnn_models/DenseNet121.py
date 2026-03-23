@@ -1,4 +1,4 @@
-from keras.applications import DenseNet121
+from keras.applications import DenseNet169
 from tensorflow.keras.layers import  Dense, Dropout, Input, GlobalAveragePooling2D, Concatenate, Flatten
 from tensorflow.keras import Sequential
 from keras import Model
@@ -11,7 +11,7 @@ def create_densenet201(num_classes: int):
     img_input = Input(shape=(512, 512, 3))
     img_conc = Concatenate()([img_input, img_input, img_input])
 
-    base_model = DenseNet121(
+    base_model = DenseNet169(
         weights="imagenet",
         include_top=False,
         input_tensor=img_input,
