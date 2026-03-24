@@ -1,4 +1,4 @@
-from keras.applications import EfficientNetB7
+from keras.applications import EfficientNetB6
 from tensorflow.keras.layers import  Dense, Dropout, Input, Flatten, Concatenate
 from tensorflow.keras import Sequential
 from keras import Model
@@ -12,7 +12,7 @@ def create_EfficientNet(num_classes: int):
     img_input = Input(shape=(512, 512, 3))
     # img_conc = Concatenate()([img_input, img_input, img_input])
 
-    base_model = EfficientNetB7(
+    base_model = EfficientNetB6(
         weights="imagenet",
         include_top=False,
         input_tensor=img_input,

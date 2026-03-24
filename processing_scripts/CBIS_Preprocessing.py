@@ -49,5 +49,5 @@ def organize_cbis_images(csv_path: str, output_root: str) -> None:
 if __name__ == "__main__":
     organize_cbis_images(
         csv_path="../data/CBIS_data/CBIS_DDSM/CBIS_dataset.csv",
-        output_root="../data/CBIS_data/CBIS_images"
+        output_root="D:\Data\CBIS\CBIS_images"
     )

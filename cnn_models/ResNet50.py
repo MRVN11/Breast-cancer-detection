@@ -1,4 +1,4 @@
-from keras.applications import ResNet50
+from keras.applications import ResNet50V2
 from tensorflow.keras.layers import  Dense, Dropout, Input, Flatten, Concatenate
 from tensorflow.keras import Sequential
 from keras import Model
@@ -10,7 +10,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 def create_ResNet50(num_classes: int):
     img_input = Input(shape=(512, 512, 3))
 
-    base_model = ResNet50(
+    base_model = ResNet50V2(
         weights="imagenet",
         include_top=False,
         input_tensor=img_input,

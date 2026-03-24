@@ -13,7 +13,7 @@ from sklearn.metrics import (
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
-from cnn_models.DenseNet121 import create_densenet201
+from cnn_models.DenseNet import create_densenet169
 from cnn_models.ResNet50 import create_ResNet50
 from cnn_models.EfficientNet import create_EfficientNet
 from data_operations.data_preprocessing import (
@@ -25,9 +25,10 @@ from data_operations.data_preprocessing import (
 # ======================
 # Config
 # ======================
+TF_ENABLE_ONEDNN_OPTS=0
 EPOCHS = 100
 FINE_TUNE_EPOCHS = 50
-MODEL_NAME = "ResNet50"  # densenet, ResNet50 & EfficientNet
+MODEL_NAME = "densenet"  # densenet, ResNet50 & EfficientNet
 DATASET = "CBIS"
 PATIENCE = EPOCHS // 10
 BATCH_SIZE = 32
@@ -42,7 +43,7 @@ class CNNModel:
 
     def _build_model(self, num_classes):
         if self.model_name == "densenet":
-            return create_densenet201(num_classes)
+            return create_densenet169(num_classes)
         elif self.model_name == "ResNet50":
             return create_ResNet50(num_classes)
         elif self.model_name == "EfficientNet":
@@ -192,7 +193,7 @@ class CNNModel:
             print("ROC-AUC could not be computed:", e)
 
         # Save report
-        with open("Classification_report.txt", "w") as f:
+        with open("Classification_report.txt", "a") as f:
             f.write(f"Model used: {MODEL_NAME}\n")
             f.write(f"Accuracy: {acc:.4f}\n\n")
             f.write(classification_report(
@@ -208,7 +209,7 @@ def main():
     try:
         if DATASET == "MIAS":
             images, labels = import_dataset(
-                data_dir="data/MIAS_data/Processed-Images", label_encoder=label_encoder)
+                data_dir="D:\Data\MIAS\Processed-Images", label_encoder=label_encoder)
             num_classes = len(label_encoder.classes_)
             # Train/Test split
             X_train, X_test, y_train, y_test = dataset_stratified_split(
@@ -228,7 +229,7 @@ def main():
 
         elif DATASET == "CBIS":
             images, labels = import_dataset(
-                data_dir="data/CBIS_data/CBIS_images", label_encoder=label_encoder)
+                data_dir="data/Combined_Images", label_encoder=label_encoder)
             num_classes = len(label_encoder.classes_)
             # Train/Validation split
             X_train, X_val, y_train, y_val = dataset_stratified_split(
