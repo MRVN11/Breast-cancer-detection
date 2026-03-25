@@ -36,6 +36,13 @@ def evaluate(model, loader, device, class_names):
                 yticklabels=class_names)
     plt.show()
 
+    with open("Classification_report.txt", "a") as f:
+        f.write("Accuracy: {:.4f}\n".format(accuracy_score(y_true, y_pred)))
+        f.write(classification_report(
+            y_true,
+            y_pred,
+            target_names=class_names)
+        )
     try:
         print("ROC-AUC:", roc_auc_score(y_true, preds))
     except:
