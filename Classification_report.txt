@@ -1,4 +1,4 @@
-Model used: densenet
+Model used: densenet121
 Accuracy: 0.7079
 
                  precision    recall  f1-score   support
@@ -10,7 +10,8 @@ Malignant_cases       0.67      0.59      0.63       344
        accuracy                           0.71       832
       macro avg       0.78      0.79      0.78       832
    weighted avg       0.71      0.71      0.71       832
-Model used: densenet
+
+Model used: densenet169
 Accuracy: 0.6737
 
                  precision    recall  f1-score   support
