@@ -1,24 +1,9 @@
-Model used: densenet121
-Accuracy: 0.7079
-
+Accuracy: 0.6321
                  precision    recall  f1-score   support
 
-   Benign_cases       0.70      0.77      0.73       436
-Malignant_cases       0.67      0.59      0.63       344
-   Normal_cases       0.98      1.00      0.99        52
+   Benign_cases       0.62      0.97      0.76       381
+Malignant_cases       0.77      0.15      0.25       266
 
-       accuracy                           0.71       832
-      macro avg       0.78      0.79      0.78       832
-   weighted avg       0.71      0.71      0.71       832
-
-Model used: densenet169
-Accuracy: 0.6737
-
-                 precision    recall  f1-score   support
-
-   Benign_cases       0.71      0.71      0.71       452
-Malignant_cases       0.63      0.62      0.63       357
-
-       accuracy                           0.67       809
-      macro avg       0.67      0.67      0.67       809
-   weighted avg       0.67      0.67      0.67       809
+       accuracy                           0.63       647
+      macro avg       0.69      0.56      0.50       647
+   weighted avg       0.68      0.63      0.55       647

@@ -10,7 +10,7 @@ class EfficientNet(nn.Module):
         self.base_model.classifier = nn.Identity()
         self.fc = nn.Sequential(
             nn.Dropout(0.2),
-            nn.Linear(1024, 512),
+            nn.Linear(2304, 512),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(512, 32),
