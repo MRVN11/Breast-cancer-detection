@@ -8,7 +8,7 @@ def preprocess_images(image_path: str) -> np.ndarray:
     gray = clahe.apply(gray)
     blur = cv2.GaussianBlur(gray, (5, 5), 0.5)
     image = cv2.cvtColor(blur, cv2.COLOR_GRAY2RGB)
-    image = cv2.resize(image, (512, 512))
+    image = cv2.resize(image, (224, 224))
     image = image.astype("float32") / 255.0
 
     return image

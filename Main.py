@@ -1,5 +1,6 @@
 import os
 
+from sklearn.metrics import accuracy_score
 from sympy.codegen.ast import none
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -23,10 +24,10 @@ from torchvision import transforms
 # ======================
 # CONFIG
 # ======================
-MODEL_NAME = "ResNet50"
+MODEL_NAME = "DenseNet121"
+FINE_TUNE_EPOCHS = 50
 EPOCHS = 100
-FINE_TUNE_EPOCHS = 15
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 PATIENCE = int(EPOCHS / 10)
 K_FOLDS = 5
 
@@ -55,8 +56,11 @@ def freeze_backbone(model):
 
 
 def unfreeze_backbone(model, num_layers=30):
-    """Unfreezes the layers of the model. for fine tuning"""
-    layers = list(model.base_model.features.children())
+    """Unfreezes the layers of the model. for fine-tuning"""
+    if MODEL_NAME == "ResNet50":
+        layers = list(model.base_model.children())
+    else:
+        layers = list(model.base_model.features.children())
     for layer in layers[-num_layers:]:
         for param in layer.parameters():
             param.requires_grad = True
@@ -69,7 +73,7 @@ def train_model(model, train_loader, val_loader, device, fold):
     weights = calculate_class_weights(full_dataset.labels).to(device)
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=weights[1])
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     best_loss = float("inf")
@@ -80,9 +84,9 @@ def train_model(model, train_loader, val_loader, device, fold):
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
         val_loss = validate(model, val_loader, criterion, device)
 
-        print(f"[Fold {fold}] Epoch {epoch+1} | Train: {train_loss:.4f} | Val: {val_loss:.4f} | Time: {datetime.datetime.now()}")
+        print(f"[Fold {fold+1}] Epoch {epoch+1} | Train: {train_loss:.4f} | Val: {val_loss:.4f} | Time: {datetime.datetime.now()}")
 
-        scheduler.step()
+        scheduler.step(val_loss)
 
         if val_loss < best_loss:
             best_loss = val_loss
@@ -96,7 +100,8 @@ def train_model(model, train_loader, val_loader, device, fold):
             break
 
     # ---------- Fine-tuning ----------
-    print(f"[Fold {fold}] Starting fine-tuning...")
+    print(f"[Fold {fold+1}] Starting fine-tuning...")
+
     torch.cuda.empty_cache()
 
     unfreeze_backbone(model)
@@ -105,37 +110,26 @@ def train_model(model, train_loader, val_loader, device, fold):
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=1e-6
     )
-
+    best_loss = float("inf")
+    patience_counter = 0
     for epoch in range(FINE_TUNE_EPOCHS):
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
         val_loss = validate(model, val_loader, criterion, device)
 
-        print(f"[Fold {fold}][FT] Epoch {epoch+1} | Train: {train_loss:.4f} | Val: {val_loss:.4f}")
+        print(f"[Fold {fold+1}][FT] Epoch {epoch+1} | Train: {train_loss:.4f} | Val: {val_loss:.4f}")
 
-        scheduler.step()
-        # score = -val_loss
-        # delta = 0.05
-        # counter = 0
-        #
-        # # if best_loss is none:
-        # #     best_loss = score
-        # #     torch.save(model.state_dict(), f"best_model_fold{fold}.pth")
-        # # elif score < best_loss + delta:
-        # #     counter += 1
-        # #     if counter >= patience_counter:
-        # #         early_stop = True
-        #
-        # if val_loss < best_loss:
-        #     best_loss = val_loss
-        #     patience_counter = 0
-        #     torch.save(model.state_dict(), f"best_model_fold{fold}.pth")
-        # else:
-        #     patience_counter += 1
-        #
-        # if patience_counter >= PATIENCE:
-        #     print("Early stopping triggered (FT)")
-        #     break
+        scheduler.step(val_loss)
 
+        if val_loss < best_loss:
+            best_loss = val_loss
+            patience_counter = 0
+            torch.save(model.state_dict(), f"best_model_fold{fold}.pth")
+        else:
+            patience_counter += 1
+
+        if patience_counter >= PATIENCE:
+            print("Early stopping triggered (FT)")
+            break
     return best_loss
 
 
@@ -148,7 +142,7 @@ def main():
     print(torch.cuda.is_available())
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    print(device)
     # ---------- Transforms ----------
     train_transform = transforms.Compose([
         transforms.ToPILImage(),
@@ -172,6 +166,7 @@ def main():
     kfold = KFold(n_splits=K_FOLDS, shuffle=True)
 
     fold_results = []
+    fold_accuracy = []
 
     for fold, (train_idx, val_idx) in enumerate(kfold.split(full_dataset)):
         print(f"\n========== FOLD {fold+1} ==========")
@@ -194,16 +189,21 @@ def main():
         best_loss = train_model(model, train_loader, val_loader, device, fold)
         fold_results.append(best_loss)
 
+
         # Evaluate best model
         model.load_state_dict(torch.load(f"best_model_fold{fold}.pth"))
-        evaluate(model, val_loader, device, class_names)
+        accuracy = evaluate(model, val_loader, device, class_names)
+        fold_accuracy.append(accuracy)
 
     print("\n========== FINAL RESULTS ==========")
     for i, loss in enumerate(fold_results):
-        print(f"Fold {i+1}: {loss:.4f}")
+        print(f"Fold {i+1}: Fold Loss: {loss:.4f}")
+
+    for i, acc in enumerate(fold_accuracy):
+        print(f"Fold {i}: Fold accuracy: {acc:.4f}")
 
     print(f"Average Loss: {sum(fold_results)/len(fold_results):.4f}")
-
+    print(f"Average Accuracy: {sum(fold_accuracy)/len(fold_accuracy):.4f}")
 
 if __name__ == "__main__":
     main()

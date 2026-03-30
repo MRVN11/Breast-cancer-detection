@@ -5,7 +5,7 @@ import torchvision.models as models
 class EfficientNet(nn.Module):
     def __init__(self):
         super(EfficientNet, self).__init__()
-        self.base_model = models.efficientnet_b6(pretrained=True)
+        self.base_model = models.efficientnet_b3(pretrained=True)
 
         self.base_model.classifier = nn.Identity()
         self.fc = nn.Sequential(
