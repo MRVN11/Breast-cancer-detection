@@ -1,8 +1,9 @@
 import torch
 import numpy as np
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 
 def evaluate(model, loader, device, class_names):
     model.eval()
@@ -47,7 +48,22 @@ def evaluate(model, loader, device, class_names):
             target_names=class_names)
         )
     try:
-        print("ROC-AUC:", roc_auc_score(y_true, preds.flatten()))
+        # Compute ROC curve
+        fpr, tpr, thresholds = roc_curve(y_true, preds.flatten())
+        # Compute AUC
+        roc_auc = auc(fpr, tpr)
+        print("ROC-AUC:", roc_auc)
+
+        # Plot ROC curve
+        plt.figure()
+        plt.plot(fpr, tpr, label=f"ROC curve (AUC = {roc_auc:.4f})")
+        plt.plot([0, 1], [0, 1], 'k--')  # diagonal line (random classifier)
+
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("ROC Curve")
+        plt.legend(loc="lower right")
+        plt.show()
     except:
         pass
     return accuracy

@@ -29,7 +29,7 @@ FINE_TUNE_EPOCHS = 50
 EPOCHS = 100
 BATCH_SIZE = 32
 PATIENCE = int(EPOCHS / 10)
-K_FOLDS = 5
+K_FOLDS = 10
 
 DATA_PATH = "data/Combined_Images"
 
@@ -163,7 +163,7 @@ def main():
     class_names = full_dataset.classes
 
     # ---------- K-Fold ----------
-    kfold = KFold(n_splits=K_FOLDS, shuffle=True)
+    kfold = KFold(n_splits=K_FOLDS, shuffle=True, random_state=42)
 
     fold_results = []
     fold_accuracy = []
