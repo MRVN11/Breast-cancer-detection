@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
+from torchvision.models import ResNet50_Weights
 
 
 class ResNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.base_model = models.resnet50(pretrained=True)
+        self.base_model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
 
         self.features = nn.Sequential(*list(self.base_model.children())[:-1])
 

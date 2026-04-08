@@ -36,5 +36,5 @@ def preprocess_images(image_path: str) -> np.ndarray:
     image = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2RGB)
 
     # --- Step 8: Resize
-    image = cv2.resize(image, (512, 512))
+    image = cv2.resize(image, (224, 224))
     return image

@@ -1,9 +1,9 @@
-Accuracy: 0.5263
+Accuracy: 0.6569
                  precision    recall  f1-score   support
 
-   Benign_cases       0.53      1.00      0.69        30
-Malignant_cases       0.00      0.00      0.00        27
+   Benign_cases       0.66      0.77      0.71       358
+Malignant_cases       0.65      0.51      0.57       289
 
-       accuracy                           0.53        57
-      macro avg       0.26      0.50      0.34        57
-   weighted avg       0.28      0.53      0.36        57
+       accuracy                           0.66       647
+      macro avg       0.65      0.64      0.64       647
+   weighted avg       0.66      0.66      0.65       647

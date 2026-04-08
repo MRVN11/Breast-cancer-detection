@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
+from torchvision.models import EfficientNet_B3_Weights
+
 
 class EfficientNet(nn.Module):
     def __init__(self):
         super(EfficientNet, self).__init__()
-        self.base_model = models.efficientnet_b3(pretrained=True)
+        self.base_model = models.efficientnet_b3(weights=EfficientNet_B3_Weights.DEFAULT)
 
         self.base_model.classifier = nn.Identity()
         self.fc = nn.Sequential(

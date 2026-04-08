@@ -1,9 +1,7 @@
-import os
 
-from sklearn.metrics import accuracy_score
-from sympy.codegen.ast import none
+from torch.amp import GradScaler
 
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 import torch
 from torch.utils.data import DataLoader, Subset
@@ -29,7 +27,7 @@ FINE_TUNE_EPOCHS = 50
 EPOCHS = 100
 BATCH_SIZE = 32
 PATIENCE = int(EPOCHS / 10)
-K_FOLDS = 10
+K_FOLDS = 5
 
 DATA_PATH = "data/Combined_Images"
 
@@ -45,9 +43,10 @@ def get_model(device):
         model = EfficientNet()
     else:
         model = DenseNet121Model()
+    model = model.to(device)
+    # model = torch.compile(model)
 
-    return model.to(device)
-
+    return model
 
 def freeze_backbone(model):
     """Freezes the layers of the model."""
@@ -55,7 +54,7 @@ def freeze_backbone(model):
         param.requires_grad = False
 
 
-def unfreeze_backbone(model, num_layers=30):
+def unfreeze_backbone(model, num_layers=10):
     """Unfreezes the layers of the model. for fine-tuning"""
     if MODEL_NAME == "ResNet50":
         layers = list(model.base_model.children())
@@ -69,29 +68,29 @@ def unfreeze_backbone(model, num_layers=30):
 # ======================
 # TRAINING LOOP
 # ======================
-def train_model(model, train_loader, val_loader, device, fold):
-    weights = calculate_class_weights(full_dataset.labels).to(device)
+def train_model(model, train_loader, val_loader, device, fold, weights):
+    # weights = calculate_class_weights(full_dataset.labels).to(device)
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=weights[1])
-
+    scaler = GradScaler('cuda')
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
     best_loss = float("inf")
     patience_counter = 0
 
     # ---------- Initial Training ----------
     for epoch in range(EPOCHS):
-        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
+        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device, scaler)
         val_loss = validate(model, val_loader, criterion, device)
 
         print(f"[Fold {fold+1}] Epoch {epoch+1} | Train: {train_loss:.4f} | Val: {val_loss:.4f} | Time: {datetime.datetime.now()}")
 
-        scheduler.step(val_loss)
+        scheduler.step()
 
         if val_loss < best_loss:
             best_loss = val_loss
             patience_counter = 0
-            torch.save(model.state_dict(), f"best_model_fold{fold}.pth")
+            # torch.save(model.state_dict(), f"best_model_fold{fold}.pth")
         else:
             patience_counter += 1
 
@@ -113,12 +112,12 @@ def train_model(model, train_loader, val_loader, device, fold):
     best_loss = float("inf")
     patience_counter = 0
     for epoch in range(FINE_TUNE_EPOCHS):
-        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
+        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device, scaler)
         val_loss = validate(model, val_loader, criterion, device)
 
         print(f"[Fold {fold+1}][FT] Epoch {epoch+1} | Train: {train_loss:.4f} | Val: {val_loss:.4f}")
 
-        scheduler.step(val_loss)
+        scheduler.step()
 
         if val_loss < best_loss:
             best_loss = val_loss
@@ -161,12 +160,12 @@ def main():
     global full_dataset
     full_dataset = BreastCancerDataset(DATA_PATH)
     class_names = full_dataset.classes
-
     # ---------- K-Fold ----------
     kfold = KFold(n_splits=K_FOLDS, shuffle=True, random_state=42)
 
     fold_results = []
     fold_accuracy = []
+    weights = calculate_class_weights(full_dataset.labels).to(device)
 
     for fold, (train_idx, val_idx) in enumerate(kfold.split(full_dataset)):
         print(f"\n========== FOLD {fold+1} ==========")
@@ -178,17 +177,32 @@ def main():
         train_subset = Subset(train_dataset, train_idx)
         val_subset = Subset(val_dataset, val_idx)
 
-        train_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True)
-        val_loader = DataLoader(val_subset, batch_size=BATCH_SIZE)
+        # train_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True)
+        train_loader = DataLoader(
+            train_subset,
+            batch_size=BATCH_SIZE,
+            shuffle=True,
+            num_workers=4,  # or 8 if CPU allows
+            pin_memory=True,
+            persistent_workers=True
+        )
+
+        # val_loader = DataLoader(val_subset, batch_size=BATCH_SIZE)
+        val_loader = DataLoader(
+            val_subset,
+            batch_size=BATCH_SIZE,
+            num_workers=4,
+            pin_memory=True,
+            persistent_workers=True
+        )
 
         # Model
         model = get_model(device)
         freeze_backbone(model)
 
         # Train
-        best_loss = train_model(model, train_loader, val_loader, device, fold)
+        best_loss = train_model(model, train_loader, val_loader, device, fold, weights)
         fold_results.append(best_loss)
-
 
         # Evaluate best model
         model.load_state_dict(torch.load(f"best_model_fold{fold}.pth"))
