@@ -15,7 +15,7 @@ from utils.weights import calculate_class_weights
 
 from cnn_models.DenseNet import DenseNet121Model
 from cnn_models.ResNet import ResNet
-from cnn_models.EfficentNet import EfficientNet
+from cnn_models.InceptionV3 import InceptionV3Model
 
 from torchvision import transforms
 
@@ -29,7 +29,7 @@ BATCH_SIZE = 32
 PATIENCE = int(EPOCHS / 10)
 K_FOLDS = 5
 
-DATA_PATH = "data/Combined_Images"
+DATA_PATH = "data/Combined_Images_Cached"
 
 # ======================
 # MODEL UTILS
@@ -39,12 +39,12 @@ def get_model(device):
         model = DenseNet121Model()
     elif MODEL_NAME == "ResNet50":
         model = ResNet()
-    elif MODEL_NAME == "EfficientNet":
-        model = EfficientNet()
+    elif MODEL_NAME == "InceptionV3":
+        model = InceptionV3Model()
     else:
         model = DenseNet121Model()
     model = model.to(device)
-    # model = torch.compile(model)
+    # model = torch.compile(model, backend="aot_eager")
 
     return model
 
@@ -54,9 +54,9 @@ def freeze_backbone(model):
         param.requires_grad = False
 
 
-def unfreeze_backbone(model, num_layers=10):
+def unfreeze_backbone(model, num_layers=50):
     """Unfreezes the layers of the model. for fine-tuning"""
-    if MODEL_NAME == "ResNet50":
+    if MODEL_NAME in ("ResNet50", "InceptionV3"):
         layers = list(model.base_model.children())
     else:
         layers = list(model.base_model.features.children())
@@ -68,29 +68,35 @@ def unfreeze_backbone(model, num_layers=10):
 # ======================
 # TRAINING LOOP
 # ======================
-def train_model(model, train_loader, val_loader, device, fold, weights):
-    # weights = calculate_class_weights(full_dataset.labels).to(device)
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=weights[1])
+def train_model(model, train_loader, val_loader, device, fold, full_dataset, pos_weight):
+    # pos_weight = calculate_class_weights(full_dataset.labels).to(device)
+    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     scaler = GradScaler('cuda')
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
-
+    optimizer = torch.optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4
+    )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
     best_loss = float("inf")
     patience_counter = 0
 
     # ---------- Initial Training ----------
     for epoch in range(EPOCHS):
-        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device, scaler)
-        val_loss = validate(model, val_loader, criterion, device)
+        train_loss, train_auc = train_one_epoch(model, train_loader, optimizer, criterion, device, scaler)
+        val_loss, val_auc = validate(model, val_loader, criterion, device)
 
-        print(f"[Fold {fold+1}] Epoch {epoch+1} | Train: {train_loss:.4f} | Val: {val_loss:.4f} | Time: {datetime.datetime.now()}")
+        print(f"[Fold {fold + 1}] Epoch {epoch + 1} | "
+              f"Train Loss: {train_loss:.4f} AUC: {train_auc:.4f} | "
+              f"Val Loss: {val_loss:.4f} AUC: {val_auc:.4f} | "
+              f"Time: {datetime.datetime.now()}")
 
-        scheduler.step()
+        scheduler.step(metrics=val_loss)
 
         if val_loss < best_loss:
             best_loss = val_loss
             patience_counter = 0
-            # torch.save(model.state_dict(), f"best_model_fold{fold}.pth")
+            torch.save(model.state_dict(), f"best_model_fold{fold}.pth")
         else:
             patience_counter += 1
 
@@ -109,15 +115,19 @@ def train_model(model, train_loader, val_loader, device, fold, weights):
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=1e-6
     )
+    ft_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=FINE_TUNE_EPOCHS)
     best_loss = float("inf")
     patience_counter = 0
     for epoch in range(FINE_TUNE_EPOCHS):
-        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device, scaler)
-        val_loss = validate(model, val_loader, criterion, device)
+        train_loss, train_auc = train_one_epoch(model, train_loader, optimizer, criterion, device, scaler)
+        val_loss, val_auc = validate(model, val_loader, criterion, device)
 
-        print(f"[Fold {fold+1}][FT] Epoch {epoch+1} | Train: {train_loss:.4f} | Val: {val_loss:.4f}")
+        print(f"[Fold {fold + 1}] Epoch {epoch + 1} | "
+              f"Train Loss: {train_loss:.4f} AUC: {train_auc:.4f} | "
+              f"Val Loss: {val_loss:.4f} AUC: {val_auc:.4f} | "
+              f"Time: {datetime.datetime.now()}")
 
-        scheduler.step()
+        ft_scheduler.step()
 
         if val_loss < best_loss:
             best_loss = val_loss
@@ -142,44 +152,60 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
+
+
     # ---------- Transforms ----------
+    IMAGENET_MEAN = [0.485, 0.456, 0.406]
+    IMAGENET_STD = [0.229, 0.224, 0.225]
     train_transform = transforms.Compose([
         transforms.ToPILImage(),
+        # transforms.Resize((299, 299)),
         transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(10),
+        transforms.RandomVerticalFlip(),  # ✅ add — mammograms can be mirrored
+        transforms.RandomRotation(15),  # slightly wider
         transforms.RandomAffine(0, translate=(0.05, 0.05)),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2),  # ✅ add
         transforms.ToTensor(),
+        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),  # ✅ critical
     ])
 
     val_transform = transforms.Compose([
         transforms.ToPILImage(),
         transforms.ToTensor(),
+        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),  # ✅ critical
     ])
 
     # ---------- Dataset ----------
-    global full_dataset
+    # global full_dataset
+    base_dataset = BreastCancerDataset(DATA_PATH)
+    pos_weight = calculate_class_weights(base_dataset.labels).to(device)
+    print(pos_weight)
     full_dataset = BreastCancerDataset(DATA_PATH)
-    class_names = full_dataset.classes
+
+    class_names = base_dataset.classes
     # ---------- K-Fold ----------
     kfold = KFold(n_splits=K_FOLDS, shuffle=True, random_state=42)
 
     fold_results = []
     fold_accuracy = []
-    weights = calculate_class_weights(full_dataset.labels).to(device)
 
-    for fold, (train_idx, val_idx) in enumerate(kfold.split(full_dataset)):
+
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(base_dataset)):
         print(f"\n========== FOLD {fold+1} ==========")
 
-        # Create datasets with transforms
-        train_dataset = BreastCancerDataset(DATA_PATH, transform=train_transform, oversample=True)
-        val_dataset = BreastCancerDataset(DATA_PATH, transform=val_transform)
+        train_subset = Subset(base_dataset, train_idx)
+        val_subset = Subset(base_dataset, val_idx)
 
-        train_subset = Subset(train_dataset, train_idx)
-        val_subset = Subset(val_dataset, val_idx)
+        # train_sample = Subset(base_dataset, train_idx)
+        # val_sample = Subset(base_dataset, val_idx)
 
-        # train_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True)
+        train_dataset = BreastCancerDataset.from_subset(train_subset, transform=train_transform, oversample=True)
+        val_dataset = BreastCancerDataset.from_subset(val_subset, transform=val_transform)
+
+
+
         train_loader = DataLoader(
-            train_subset,
+            train_dataset,
             batch_size=BATCH_SIZE,
             shuffle=True,
             num_workers=4,  # or 8 if CPU allows
@@ -187,9 +213,8 @@ def main():
             persistent_workers=True
         )
 
-        # val_loader = DataLoader(val_subset, batch_size=BATCH_SIZE)
         val_loader = DataLoader(
-            val_subset,
+            val_dataset,
             batch_size=BATCH_SIZE,
             num_workers=4,
             pin_memory=True,
@@ -201,12 +226,12 @@ def main():
         freeze_backbone(model)
 
         # Train
-        best_loss = train_model(model, train_loader, val_loader, device, fold, weights)
+        best_loss = train_model(model, train_loader, val_loader, device, fold, base_dataset, pos_weight)
         fold_results.append(best_loss)
 
         # Evaluate best model
-        model.load_state_dict(torch.load(f"best_model_fold{fold}.pth"))
-        accuracy = evaluate(model, val_loader, device, class_names)
+        model.load_state_dict(torch.load(f"best_model_fold{fold}.pth", weights_only=True))
+        accuracy, sensitivity, specificity, roc_auc = evaluate(model, val_loader, device, class_names)
         fold_accuracy.append(accuracy)
 
     print("\n========== FINAL RESULTS ==========")
@@ -214,7 +239,7 @@ def main():
         print(f"Fold {i+1}: Fold Loss: {loss:.4f}")
 
     for i, acc in enumerate(fold_accuracy):
-        print(f"Fold {i}: Fold accuracy: {acc:.4f}")
+        print(f"Fold {i+1}: Fold accuracy: {acc:.4f}")
 
     print(f"Average Loss: {sum(fold_results)/len(fold_results):.4f}")
     print(f"Average Accuracy: {sum(fold_accuracy)/len(fold_accuracy):.4f}")
