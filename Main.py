@@ -1,8 +1,8 @@
 
 from torch.amp import GradScaler
-
+import numpy as np
 # os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-
+import random
 import torch
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import KFold
@@ -15,14 +15,14 @@ from utils.weights import calculate_class_weights
 
 from cnn_models.DenseNet import DenseNet121Model
 from cnn_models.ResNet import ResNet
-from cnn_models.InceptionV3 import InceptionV3Model
+from cnn_models.MobileNet import MobileNetV3
 
 from torchvision import transforms
 
 # ======================
 # CONFIG
 # ======================
-MODEL_NAME = "DenseNet121"
+MODEL_NAME = "MobileNetV3"
 FINE_TUNE_EPOCHS = 50
 EPOCHS = 100
 BATCH_SIZE = 32
@@ -31,6 +31,7 @@ K_FOLDS = 5
 
 DATA_PATH = "data/Combined_Images_Cached"
 
+SEED = 42
 # ======================
 # MODEL UTILS
 # ======================
@@ -39,12 +40,11 @@ def get_model(device):
         model = DenseNet121Model()
     elif MODEL_NAME == "ResNet50":
         model = ResNet()
-    elif MODEL_NAME == "InceptionV3":
-        model = InceptionV3Model()
+    elif MODEL_NAME == "MobileNetV3":
+        model = MobileNetV3()
     else:
         model = DenseNet121Model()
     model = model.to(device)
-    # model = torch.compile(model, backend="aot_eager")
 
     return model
 
@@ -56,20 +56,17 @@ def freeze_backbone(model):
 
 def unfreeze_backbone(model, num_layers=50):
     """Unfreezes the layers of the model. for fine-tuning"""
-    if MODEL_NAME in ("ResNet50", "InceptionV3"):
+    if MODEL_NAME in ("ResNet50", "MobileNetV3"):
         layers = list(model.base_model.children())
     else:
         layers = list(model.base_model.features.children())
     for layer in layers[-num_layers:]:
         for param in layer.parameters():
             param.requires_grad = True
-
-
 # ======================
 # TRAINING LOOP
 # ======================
-def train_model(model, train_loader, val_loader, device, fold, full_dataset, pos_weight):
-    # pos_weight = calculate_class_weights(full_dataset.labels).to(device)
+def train_model(model, train_loader, val_loader, device, fold, pos_weight):
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     scaler = GradScaler('cuda')
     optimizer = torch.optim.Adam(
@@ -152,19 +149,23 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     # ---------- Transforms ----------
     IMAGENET_MEAN = [0.485, 0.456, 0.406]
     IMAGENET_STD = [0.229, 0.224, 0.225]
     train_transform = transforms.Compose([
         transforms.ToPILImage(),
-        # transforms.Resize((299, 299)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),  # ✅ add — mammograms can be mirrored
         transforms.RandomRotation(15),  # slightly wider
         transforms.RandomAffine(0, translate=(0.05, 0.05)),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2),  # ✅ add
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2),  # ✅ add
         transforms.ToTensor(),
         transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),  # ✅ critical
     ])
@@ -176,12 +177,9 @@ def main():
     ])
 
     # ---------- Dataset ----------
-    # global full_dataset
     base_dataset = BreastCancerDataset(DATA_PATH)
-    pos_weight = calculate_class_weights(base_dataset.labels).to(device)
-    print(pos_weight)
     full_dataset = BreastCancerDataset(DATA_PATH)
-
+    pos_weight = calculate_class_weights(full_dataset.labels).to(device)
     class_names = base_dataset.classes
     # ---------- K-Fold ----------
     kfold = KFold(n_splits=K_FOLDS, shuffle=True, random_state=42)
@@ -189,28 +187,25 @@ def main():
     fold_results = []
     fold_accuracy = []
 
-
     for fold, (train_idx, val_idx) in enumerate(kfold.split(base_dataset)):
         print(f"\n========== FOLD {fold+1} ==========")
 
         train_subset = Subset(base_dataset, train_idx)
         val_subset = Subset(base_dataset, val_idx)
 
-        # train_sample = Subset(base_dataset, train_idx)
-        # val_sample = Subset(base_dataset, val_idx)
-
         train_dataset = BreastCancerDataset.from_subset(train_subset, transform=train_transform, oversample=True)
         val_dataset = BreastCancerDataset.from_subset(val_subset, transform=val_transform)
 
-
+        generator = torch.Generator()
+        generator.manual_seed(SEED)
 
         train_loader = DataLoader(
             train_dataset,
             batch_size=BATCH_SIZE,
             shuffle=True,
-            num_workers=4,  # or 8 if CPU allows
+            num_workers=8,
             pin_memory=True,
-            persistent_workers=True
+            persistent_workers=True,
         )
 
         val_loader = DataLoader(
@@ -226,7 +221,7 @@ def main():
         freeze_backbone(model)
 
         # Train
-        best_loss = train_model(model, train_loader, val_loader, device, fold, base_dataset, pos_weight)
+        best_loss = train_model(model, train_loader, val_loader, device, fold, pos_weight)
         fold_results.append(best_loss)
 
         # Evaluate best model

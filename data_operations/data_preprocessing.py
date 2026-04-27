@@ -7,7 +7,7 @@ def preprocess_images(image_path: str) -> np.ndarray:
         raise FileNotFoundError(f"Could not load image: {image_path}")
 
         # --- Step 1: Resize
-    resized = cv2.resize(image, (512, 512), interpolation=cv2.INTER_LINEAR)
+    resized = cv2.resize(image, (1024, 1024), interpolation=cv2.INTER_LINEAR)
 
     # --- Step 2: Convert to grayscale
     gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
@@ -29,8 +29,8 @@ def preprocess_images(image_path: str) -> np.ndarray:
     # Add a small padding around the crop
     pad = 10
     x, y = max(0, x - pad), max(0, y - pad)
-    w = min(image.shape[1] - x, w + 2 * pad)
-    h = min(image.shape[0] - y, h + 2 * pad)
+    w = min(resized.shape[1] - x, w + 2 * pad)
+    h = min(resized.shape[0] - y, h + 2 * pad)
 
     cropped_gray = gray[y:y + h, x:x + w]
 
