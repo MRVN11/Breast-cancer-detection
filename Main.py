@@ -1,7 +1,6 @@
 
 from torch.amp import GradScaler
 import numpy as np
-# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import random
 import torch
 from torch.utils.data import DataLoader, Subset
@@ -162,18 +161,17 @@ def main():
     train_transform = transforms.Compose([
         transforms.ToPILImage(),
         transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),  # ✅ add — mammograms can be mirrored
+        transforms.RandomVerticalFlip(),  # mammograms can be mirrored
         transforms.RandomRotation(15),  # slightly wider
         transforms.RandomAffine(0, translate=(0.05, 0.05)),
-        # transforms.ColorJitter(brightness=0.2, contrast=0.2),  # ✅ add
         transforms.ToTensor(),
-        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),  # ✅ critical
+        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
     ])
 
     val_transform = transforms.Compose([
         transforms.ToPILImage(),
         transforms.ToTensor(),
-        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),  # ✅ critical
+        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
     ])
 
     # ---------- Dataset ----------

@@ -21,7 +21,6 @@ def calculate_class_weights(labels):
 
     print(f"Class distribution — Negative: {neg} | Positive: {pos} | Ratio: {neg/pos:.2f}| Time {datetime.datetime.now()}")
 
-    # Smoothed neg/pos ratio — what BCEWithLogitsLoss pos_weight expects
     smoothing = 0.1
     pos_weight = (neg + smoothing) / (pos + smoothing)
 

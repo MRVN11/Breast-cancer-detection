@@ -32,9 +32,9 @@ def evaluate(model, loader, device, class_names):
     # --- Optimal threshold via Youden Index ---
     try:
         fpr, tpr, thresholds = roc_curve(targets, preds)
-        youden_idx        = np.argmax(tpr - fpr)
+        youden_idx = np.argmax(tpr - fpr)
         optimal_threshold = thresholds[youden_idx]
-        roc_auc           = auc(fpr, tpr)
+        roc_auc = auc(fpr, tpr)
         print(f"Optimal threshold: {optimal_threshold:.4f}")
     except ValueError as e:
         print(f"[Warning] ROC curve failed: {e}")
@@ -50,7 +50,7 @@ def evaluate(model, loader, device, class_names):
     specificity = recall_score(y_true, y_pred, pos_label=0, zero_division=0)
     report = classification_report(y_true, y_pred, target_names=class_names)
 
-    print(f"Accuracy:    {accuracy:.4f}")
+    print(f"Accuracy: {accuracy:.4f}")
     print(f"Sensitivity: {sensitivity:.4f}")
     print(f"Specificity: {specificity:.4f}")
     if roc_auc is not None:
@@ -59,11 +59,11 @@ def evaluate(model, loader, device, class_names):
 
     # --- Save report ---
     with open("classification_report.txt", "w") as f:
-        f.write(f"Accuracy:         {accuracy:.4f}\n")
-        f.write(f"Sensitivity:      {sensitivity:.4f}\n")
-        f.write(f"Specificity:      {specificity:.4f}\n")
+        f.write(f"Accuracy: {accuracy:.4f}\n")
+        f.write(f"Sensitivity: {sensitivity:.4f}\n")
+        f.write(f"Specificity: {specificity:.4f}\n")
         if roc_auc is not None:
-            f.write(f"ROC-AUC:          {roc_auc:.4f}\n")
+            f.write(f"ROC-AUC: {roc_auc:.4f}\n")
         f.write(f"Optimal Threshold:{optimal_threshold:.4f}\n\n")
         f.write(report)
 

@@ -34,7 +34,7 @@ def preprocess_images(image_path: str) -> np.ndarray:
 
     cropped_gray = gray[y:y + h, x:x + w]
 
-    # --- Step 4: CLAHE (now applied AFTER cropping — much more effective)
+    # --- Step 4: CLAHE
     clahe = cv2.createCLAHE(clipLimit=5.0, tileGridSize=(8, 8))
     clahe_gray = clahe.apply(cropped_gray)
 

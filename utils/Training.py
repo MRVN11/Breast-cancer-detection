@@ -7,7 +7,7 @@ def _forward(model, inputs):
     """Handles models that return auxiliary outputs (e.g. InceptionV3)."""
     outputs = model(inputs)
     if isinstance(outputs, tuple):
-        return outputs[0], outputs[1]  # logits, aux_logits
+        return outputs[0], outputs[1]
     return outputs, None
 
 
@@ -60,7 +60,7 @@ def validate(model, loader, criterion, device):
             labels = labels.to(device, non_blocking=True).float().unsqueeze(1)
 
             with autocast(device_type=device.type):
-                logits, _ = _forward(model, inputs)  # no aux in eval mode
+                logits, _ = _forward(model, inputs)
                 loss = criterion(logits, labels)
 
             total_loss += loss.item()

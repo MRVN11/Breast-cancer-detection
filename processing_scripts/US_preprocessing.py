@@ -4,20 +4,20 @@ import cv2
 
 def main(CSV_PATH, IMG_DIR) -> None:
 
-    # Load with default header (row 0) and case name as index
+
     df = pd.read_csv(CSV_PATH, header=0, index_col=1)
 
-    # Debug: print columns and first few rows so you can verify
+
     print("Columns:", df.columns.tolist())
     print(df.head())
 
-    CLASSIFICATION_COL = "Classification"  # adjust to exact column name shown above
+    CLASSIFICATION_COL = "Classification"
 
     for img_png in os.listdir(IMG_DIR):
         if not img_png.endswith(".png"):
             continue
 
-        img_name = img_png.split("\n")[0]  # e.g. "case001"
+        img_name = img_png.split("\n")[0]
         # img_name = img_png
         if img_name not in df.index:
             print(f"Skipping {img_name}: not found in CSV")

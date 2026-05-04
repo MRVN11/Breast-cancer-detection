@@ -45,7 +45,6 @@ class BreastCancerDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
-        # ✅ Just load the cached .npy — no heavy preprocessing
         image = np.load(self.image_paths[idx]).astype(np.float32)
 
         image = np.ascontiguousarray(image)

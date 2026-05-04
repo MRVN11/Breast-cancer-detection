@@ -26,7 +26,7 @@ def organize_cbis_images(csv_path: str, output_root: str) -> None:
 
         # Skip unknown labels
         if label not in label_to_folder:
-            print(f"⚠️  Skipping unknown label: {label} for image {img_path}")
+            print(f"  Skipping unknown label: {label} for image {img_path}")
             continue
 
         # Destination folder
@@ -39,12 +39,12 @@ def organize_cbis_images(csv_path: str, output_root: str) -> None:
         # Read and save as PNG
         img = cv2.imread(img_path)
         if img is None:
-            print(f"⚠️  Failed to read image: {img_path}")
+            print(f" Failed to read image: {img_path}")
             continue
 
         cv2.imwrite(dst_path, img)
 
-    print("✅ Done organizing CBIS images!")
+    print("Done organizing CBIS images!")
 
 if __name__ == "__main__":
     organize_cbis_images(
